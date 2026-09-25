@@ -26,7 +26,7 @@ type Cacher interface {
 	Close() error
 }
 
-const userCacheTTL = 5 * time.Second
+const userCacheTTL = 10 * time.Second
 
 type Handler struct {
 	db     Database

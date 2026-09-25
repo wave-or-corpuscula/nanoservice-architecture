@@ -3,10 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"userservice/internal/cache"
 	"userservice/internal/database"
 	"userservice/pkg/utils"
 
@@ -47,7 +47,12 @@ func (h *Handler) GetUser(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	cacheKey := fmt.Sprintf("user:%d", id)
+	var cacheKey string
+	if query.WithOrders {
+		cacheKey = cache.UserWithOrdersKey(id)
+	} else {
+		cacheKey = cache.UserKey(id)
+	}
 
 	if cached, err := h.cacher.Get(ctx, cacheKey); err == nil && cached != "" {
 		var user database.User
@@ -208,9 +213,9 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	cacheKey := fmt.Sprintf("user:%d", updatedUser.ID)
-	if err := h.cacher.Del(ctx, cacheKey); err != nil {
-		log.Printf("cannot delete key: %s from cache: %v", cacheKey, err)
+	cacheKeys := []string{cache.UserKey(id), cache.UserWithOrdersKey(id)}
+	if err := h.cacher.Del(ctx, cacheKeys...); err != nil {
+		log.Printf("cannot delete key: %v from cache: %v", cacheKeys, err)
 	}
 
 	c.JSON(http.StatusOK, updatedUser)
@@ -234,10 +239,9 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	cacheKey := fmt.Sprintf("user:%d", id)
-
-	if err := h.cacher.Del(ctx, cacheKey); err != nil {
-		log.Printf("cannot delete key: %s from cache: %v", cacheKey, err)
+	cacheKeys := []string{cache.UserKey(id), cache.UserWithOrdersKey(id)}
+	if err := h.cacher.Del(ctx, cacheKeys...); err != nil {
+		log.Printf("cannot delete key: %v from cache: %v", cacheKeys, err)
 	}
 
 	c.JSON(http.StatusNoContent, nil)
