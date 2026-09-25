@@ -24,9 +24,19 @@ services:
       - ./user-service/.env
     environment:
       - DB_HOST=postgres-db
-      - DB_PORT=5432
+      - REDIS_HOST=redis
     depends_on:
       - postgres-db
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis_cache
+    ports:
+     - "6380:6379"
+    command: redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
     networks:
       - app-network
 
