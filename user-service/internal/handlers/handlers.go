@@ -16,6 +16,7 @@ type Database interface {
 	GetUserOrders(userID uint) (*database.OrdersResponse, error)
 	GetUserWithOrders(id uint) (*database.User, error)
 	UpdateUser(userID uint, name string, email string) (*database.User, error)
+	DeleteUser(userID uint) error
 }
 
 type Cacher interface {
@@ -24,6 +25,8 @@ type Cacher interface {
 	Del(ctx context.Context, keys ...string) error
 	Close() error
 }
+
+const userCacheTTL = 5 * time.Second
 
 type Handler struct {
 	db     Database
@@ -44,6 +47,7 @@ func (h *Handler) RegisterRouters(router *gin.Engine) {
 		v1.GET("/users/:id/orders", h.GetUserOrders)
 		v1.GET("/users/:id", h.GetUser)
 		v1.PUT("/users/:id", h.UpdateUser)
+		v1.DELETE("/users/:id", h.DeleteUser)
 		v1.GET("/users", h.GetUsers)
 		v1.POST("/users", h.CreateUser)
 	}

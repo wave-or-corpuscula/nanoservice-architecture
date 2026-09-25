@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 	"userservice/internal/database"
 	"userservice/pkg/utils"
 
@@ -75,7 +74,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 	}
 
 	if data, err := json.Marshal(user); err == nil {
-		if err := h.cacher.Set(ctx, cacheKey, string(data), 5*time.Minute); err != nil {
+		if err := h.cacher.Set(ctx, cacheKey, string(data), userCacheTTL); err != nil {
 			log.Printf("Cannot cache user with key: %q: %v", cacheKey, err)
 		}
 	}
@@ -215,4 +214,31 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, updatedUser)
+}
+
+func (h *Handler) DeleteUser(c *gin.Context) {
+	paramID := c.Param("id")
+	id, err := utils.ValidateID(paramID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.db.DeleteUser(id); err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	cacheKey := fmt.Sprintf("user:%d", id)
+
+	if err := h.cacher.Del(ctx, cacheKey); err != nil {
+		log.Printf("cannot delete key: %s from cache: %v", cacheKey, err)
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }
