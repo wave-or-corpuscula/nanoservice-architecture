@@ -9,7 +9,7 @@ import (
 func ValidateID(paramID string) (uint, error) {
 	id, err := strconv.Atoi(paramID)
 	if err != nil {
-		return 0, fmt.Errorf("invalid id: %w", err.Error())
+		return 0, fmt.Errorf("invalid id: %w", err)
 	}
 
 	if id <= 0 {
