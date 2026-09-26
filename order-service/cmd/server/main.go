@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"net/http"
+	"orderservice/internal/config"
 	"orderservice/internal/database"
 	"orderservice/internal/handlers"
 	"os"
+	"os/signal"
+	"syscall"
 
 	user "microservices/proto/user"
 
@@ -28,10 +34,13 @@ func main() {
 	}
 	defer db.Close()
 
+	cfg := config.Load()
+
 	// gRPC connection initializing
 
+	grpcPort := os.Getenv("GRPC_PORT")
 	conn, err := grpc.NewClient(
-		"localhost:50051",
+		fmt.Sprintf("localhost:%s", grpcPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -39,7 +48,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	log.Println("gRPC server for order-service started")
+	log.Printf("gRPC connection started on :%s", grpcPort)
 
 	client := user.NewUserServiceClient(conn)
 
@@ -47,12 +56,29 @@ func main() {
 
 	router := gin.Default()
 
-	h := handlers.NewHandler(db, client)
+	h := handlers.NewHandler(db, client, cfg)
 	h.RegisterRouters(router)
 
-	log.Println("Router started on :9999")
+	srv := http.Server{
+		Addr:    ":9999",
+		Handler: router.Handler(),
+	}
 
-	if err := router.Run(":9999"); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("cannot run order-service: %v", err)
 	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTPShutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("GIN server forced to shutdown: %v\n", err)
+	} else {
+		log.Println("GIN server stopped gracefully")
+	}
+	log.Println("Application exiting successfully")
 }
