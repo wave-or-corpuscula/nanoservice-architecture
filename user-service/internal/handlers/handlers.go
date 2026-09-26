@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"time"
+	"userservice/internal/config"
 	"userservice/internal/database"
 
 	"github.com/gin-gonic/gin"
@@ -29,12 +30,14 @@ const userCacheTTL = 10 * time.Second
 type Handler struct {
 	db     Database
 	cacher Cacher
+	config config.Config
 }
 
-func NewHandler(db Database, cacher Cacher) *Handler {
+func NewHandler(db Database, cacher Cacher, config config.Config) *Handler {
 	return &Handler{
 		db:     db,
 		cacher: cacher,
+		config: config,
 	}
 }
 

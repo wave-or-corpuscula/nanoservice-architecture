@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
+	"orderservice/internal/config"
 	"orderservice/internal/database"
 
 	user "microservices/proto/user"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 type Database interface {
@@ -14,15 +17,21 @@ type Database interface {
 	GetUserOrders(userID uint) (*database.OrdersResponse, error)
 }
 
-type Handler struct {
-	db         Database
-	userClient user.UserServiceClient
+type UserServiceClient interface {
+	GetUser(ctx context.Context, in *user.GetUserRequest, opts ...grpc.CallOption) (*user.GetUserResponse, error)
 }
 
-func NewHandler(db Database, userClient user.UserServiceClient) *Handler {
+type Handler struct {
+	db         Database
+	userClient UserServiceClient
+	config     config.Config
+}
+
+func NewHandler(db Database, userClient UserServiceClient, config config.Config) *Handler {
 	return &Handler{
 		db:         db,
 		userClient: userClient,
+		config:     config,
 	}
 }
 

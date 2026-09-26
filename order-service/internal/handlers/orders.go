@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	user "microservices/proto/user"
@@ -39,7 +40,9 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), h.config.GRPCRequestTimeout)
+	defer cancel()
+
 	greq := user.GetUserRequest{
 		Id: uint64(req.UserID),
 	}
@@ -48,6 +51,10 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if status.Code(err) == codes.Unavailable {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

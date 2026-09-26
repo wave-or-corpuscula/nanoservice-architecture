@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"userservice/internal/config"
 	"userservice/internal/database"
 
 	"github.com/gin-gonic/gin"
@@ -92,9 +93,10 @@ func getTestRouter() *gin.Engine {
 
 	db := &MockDatabase{}
 	cacher := &MockCacher{}
+	cfg := config.Load()
 
 	router := gin.New()
-	handlers := NewHandler(db, cacher)
+	handlers := NewHandler(db, cacher, cfg)
 	handlers.RegisterRouters(router)
 
 	return router

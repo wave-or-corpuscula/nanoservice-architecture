@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"orderservice/internal/config"
 	"orderservice/internal/database"
 	"strconv"
 	"strings"
@@ -61,7 +62,8 @@ func getTestRouter() *gin.Engine {
 
 	client := &MockUserClient{}
 	db := &MockDatabase{}
-	handler := NewHandler(db, client)
+	cfg := config.Load()
+	handler := NewHandler(db, client, cfg)
 
 	router := gin.New()
 	handler.RegisterRouters(router)
