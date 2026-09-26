@@ -3,11 +3,14 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	user "microservices/proto/user"
 	"net/http"
 	"orderservice/internal/database"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func ValidateID(paramID string) (uint, error) {
@@ -36,19 +39,23 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	// paramID := c.Param("id")
-	// id, err := ValidateID(paramID)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 	return
-	// }
+	ctx := c.Request.Context()
+	greq := user.GetUserRequest{
+		Id: uint64(req.UserID),
+	}
 
-	order, err := h.db.CreateOrder(req.UserID, req.Amount)
+	_, err := h.userClient.GetUser(ctx, &greq)
 	if err != nil {
-		if errors.Is(err, database.ErrUserNotFound) {
+		if status.Code(err) == codes.NotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	order, err := h.db.CreateOrder(req.UserID, req.Amount)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
 		return
 	}

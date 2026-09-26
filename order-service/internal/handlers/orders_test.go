@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,11 @@ import (
 	"testing"
 	"time"
 
+	user "microservices/proto/user"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 func getTestOrder(userID uint, amount float64) *database.Order {
@@ -42,11 +46,22 @@ func (md *MockDatabase) GetUserOrders(userID uint) (*database.OrdersResponse, er
 	}, nil
 }
 
+type MockUserClient struct{}
+
+func (mc *MockUserClient) GetUser(
+	ctx context.Context,
+	in *user.GetUserRequest,
+	opts ...grpc.CallOption,
+) (*user.GetUserResponse, error) {
+	return &user.GetUserResponse{Id: 1, Name: "grpcName", Email: "grpcEmail"}, nil
+}
+
 func getTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
+	client := &MockUserClient{}
 	db := &MockDatabase{}
-	handler := NewHandler(db)
+	handler := NewHandler(db, client)
 
 	router := gin.New()
 	handler.RegisterRouters(router)

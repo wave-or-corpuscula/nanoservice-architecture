@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"orderservice/internal/database"
 
+	user "microservices/proto/user"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,12 +15,14 @@ type Database interface {
 }
 
 type Handler struct {
-	db Database
+	db         Database
+	userClient user.UserServiceClient
 }
 
-func NewHandler(db Database) *Handler {
+func NewHandler(db Database, userClient user.UserServiceClient) *Handler {
 	return &Handler{
-		db: db,
+		db:         db,
+		userClient: userClient,
 	}
 }
 
