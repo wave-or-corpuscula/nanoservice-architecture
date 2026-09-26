@@ -139,55 +139,6 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, newUser)
 }
 
-func (h *Handler) CreateOrder(c *gin.Context) {
-	var req CreateOrderRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid amount: " + err.Error()})
-		return
-	}
-
-	paramID := c.Param("id")
-	id, err := utils.ValidateID(paramID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	order, err := h.db.CreateOrder(uint(id), req.Amount)
-	if err != nil {
-		if errors.Is(err, database.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, order)
-}
-
-func (h *Handler) GetUserOrders(c *gin.Context) {
-	paramID := c.Param("id")
-	id, err := utils.ValidateID(paramID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp, err := h.db.GetUserOrders(id)
-	if err != nil {
-		if errors.Is(err, database.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
 func (h *Handler) UpdateUser(c *gin.Context) {
 	paramID := c.Param("id")
 	id, err := utils.ValidateID(paramID)

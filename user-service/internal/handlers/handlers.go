@@ -12,8 +12,6 @@ type Database interface {
 	CreateUser(name string, email string) (*database.User, error)
 	GetUser(id uint) (*database.User, error)
 	GetUsers(page int, limit int) (*database.UsersPaginationResponse, error)
-	CreateOrder(userID uint, amount float64) (*database.Order, error)
-	GetUserOrders(userID uint) (*database.OrdersResponse, error)
 	GetUserWithOrders(id uint) (*database.User, error)
 	UpdateUser(userID uint, name string, email string) (*database.User, error)
 	DeleteUser(userID uint) error
@@ -43,8 +41,6 @@ func NewHandler(db Database, cacher Cacher) *Handler {
 func (h *Handler) RegisterRouters(router *gin.Engine) {
 	v1 := router.Group("/api/v1")
 	{
-		v1.POST("/users/:id/orders", h.CreateOrder)
-		v1.GET("/users/:id/orders", h.GetUserOrders)
 		v1.GET("/users/:id", h.GetUser)
 		v1.PUT("/users/:id", h.UpdateUser)
 		v1.DELETE("/users/:id", h.DeleteUser)
