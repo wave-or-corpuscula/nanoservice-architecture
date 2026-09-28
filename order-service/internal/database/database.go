@@ -17,7 +17,7 @@ type Database struct {
 	db *gorm.DB
 }
 
-var ErrUserNotFound = errors.New("user not found")
+var ErrNotFound = errors.New("user not found")
 
 func GetEnvAsInt(key string, defaultVal int) int {
 	if value, exists := os.LookupEnv(key); exists {
@@ -115,11 +115,15 @@ func (db *Database) CreateOrder(userID uint, amount float64) (*Order, error) {
 
 func (db *Database) GetUserOrders(userID uint) (*OrdersResponse, error) {
 	var orders []Order
-	if err := db.db.Debug().Where("user_id = ?", userID).First(&orders).Error; err != nil {
-		// if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 	return nil, ErrUserNotFound
-		// }
+	if err := db.db.Debug().Where("user_id = ?", userID).Find(&orders).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
+	}
+
+	if len(orders) == 0 {
+		return nil, ErrNotFound
 	}
 
 	return &OrdersResponse{

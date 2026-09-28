@@ -37,7 +37,7 @@ func TestCreateOrder(t *testing.T) {
 			Name:          "unknown user",
 			UserID:        0,
 			Amount:        1000,
-			ExpectedError: ErrUserNotFound,
+			ExpectedError: ErrNotFound,
 		},
 		{
 			Name:          "negative amount",
@@ -75,7 +75,7 @@ func TestGetUserOrders(t *testing.T) {
 		{
 			Name:          "unknown user",
 			UserID:        0,
-			ExpectedError: ErrUserNotFound,
+			ExpectedError: ErrNotFound,
 		},
 	}
 
