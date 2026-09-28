@@ -8,7 +8,6 @@ import (
 	"time"
 	"userservice/pkg/utils"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -65,10 +64,6 @@ func InitDB() (*Database, error) {
 
 	if err := database.AutoMigrate(&User{}); err != nil {
 		return nil, fmt.Errorf("cannot migrate User table: %w", err)
-	}
-
-	if err := database.AutoMigrate(&Order{}); err != nil {
-		return nil, fmt.Errorf("cannot migrate Order table: %w", err)
 	}
 
 	if err := sqlDB.Ping(); err != nil {
@@ -144,41 +139,6 @@ func (db *Database) GetUsers(page int, limit int) (*UsersPaginationResponse, err
 		Total: int(total),
 	}
 	return resp, nil
-}
-
-func (db *Database) CreateOrder(userID uint, amount float64) (*Order, error) {
-	order := &Order{
-		UserID: userID,
-		Amount: amount,
-	}
-
-	if err := db.db.Debug().Create(order).Error; err != nil {
-
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23503" { // 23503 - code for foreign_key_violation in Postgres
-			return nil, ErrUserNotFound
-		}
-
-		return nil, err
-	}
-
-	return order, nil
-}
-
-func (db *Database) GetUserOrders(userID uint) (*OrdersResponse, error) {
-	var user User
-
-	if err := db.db.Debug().Preload("Orders").First(&user, userID).Error; err != nil {
-
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
-	}
-
-	return &OrdersResponse{
-		Orders: user.Orders,
-	}, nil
 }
 
 func (db *Database) UpdateUser(userID uint, name string, email string) (*User, error) {

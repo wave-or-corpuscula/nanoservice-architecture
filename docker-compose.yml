@@ -1,47 +1,79 @@
 services:
-  postgres-db:
+  user-postgres:
     image: postgres:16-alpine
     container_name: user-service-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: microservicetestdb
+      POSTGRES_DB: userdb
     ports:
-      - "5433:5432"
+     - "8887:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - user-pg-volume:/var/lib/postgresql/data
     networks:
       - app-network
-  
+
+  order-postgres:
+    image: postgres:16-alpine
+    container_name: order-service-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orderdb
+    ports:
+      - "9998:5432"
+    volumes:
+     - order-pg-volume:/var/lib/postgresql/data
+    networks:
+     - app-network
+
   user-service:
     build:
-      context: ./user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: user-service/Dockerfile
     container_name: user-service-app
     ports:
       - "8888:8888"
     env_file:
       - ./user-service/.env
     environment:
-      - DB_HOST=postgres-db
+      - DB_HOST=user-postgres
       - REDIS_HOST=redis
     depends_on:
-      - postgres-db
+      - user-postgres
       - redis
     networks:
       - app-network
 
+  order-service:
+    build:
+      context: .
+      dockerfile: ./order-service/Dockerfile
+    container_name: order-service-app
+    ports:
+     - "9999:9999"
+    env_file:
+     - ./order-service/.env
+    environment:
+     - GRPC_USER_HOST=user-service
+     - DB_HOST=order-postgres
+    depends_on:
+     - order-postgres
+    networks:
+     - app-network
+
   redis:
     image: redis:alpine
     container_name: redis_cache
-    ports:
-     - "6380:6379"
+    # ports:
+    #  - "6380:6379"
     command: redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
     networks:
       - app-network
 
 volumes:
-  pgdata:
+  user-pg-volume:
+  order-pg-volume:
 
 networks:
   app-network:
