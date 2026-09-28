@@ -38,9 +38,14 @@ func main() {
 
 	// gRPC connection initializing
 
-	grpcPort := os.Getenv("GRPC_PORT")
+	grpcURL := fmt.Sprintf(
+		"%s:%s",
+		os.Getenv("GRPC_USER_HOST"),
+		os.Getenv("GRPC_USER_PORT"),
+	)
+
 	conn, err := grpc.NewClient(
-		fmt.Sprintf("localhost:%s", grpcPort),
+		grpcURL,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -48,7 +53,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	log.Printf("gRPC connection started on :%s", grpcPort)
+	log.Printf("gRPC connection started on %s\n", grpcURL)
 
 	client := user.NewUserServiceClient(conn)
 
