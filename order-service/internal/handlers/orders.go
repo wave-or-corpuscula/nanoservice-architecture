@@ -78,10 +78,31 @@ func (h *Handler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(c.Request.Context(), h.config.GRPCRequestTimeout)
+	defer cancel()
+
+	greq := &user.GetUserRequest{
+		Id: uint64(id),
+	}
+
+	if _, err := h.userClient.GetUser(ctx, greq); err != nil {
+		if status.Code(err) == codes.NotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if status.Code(err) == codes.Unavailable {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+
+	}
+
 	resp, err := h.db.GetUserOrders(id)
 	if err != nil {
-		if errors.Is(err, database.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		if errors.Is(err, database.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "provided user have no orders"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
