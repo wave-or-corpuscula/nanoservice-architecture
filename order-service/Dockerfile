@@ -2,13 +2,15 @@ FROM golang:1.26.3-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY ./proto ./proto
+COPY ./order-service/go.mod ./order-service/go.sum ./order-service/
+
+WORKDIR /app/order-service
 RUN go mod download
 
-COPY . .
+COPY ./order-service/ .
 
 RUN go build -o order-service ./cmd/server/main.go
-
 
 FROM alpine:latest
 
