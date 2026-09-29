@@ -8,6 +8,7 @@ import (
 	"orderservice/internal/config"
 	"orderservice/internal/database"
 	"orderservice/internal/handlers"
+	"orderservice/internal/kafka"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,6 +37,11 @@ func main() {
 
 	cfg := config.Load()
 
+	// Kafka initialization
+
+	producer := kafka.NewProducer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaClientID)
+	defer producer.Close()
+
 	// gRPC connection initializing
 
 	grpcURL := fmt.Sprintf(
@@ -61,7 +67,7 @@ func main() {
 
 	router := gin.Default()
 
-	h := handlers.NewHandler(db, client, cfg)
+	h := handlers.NewHandler(db, client, cfg, producer)
 	h.RegisterRouters(router)
 
 	srv := http.Server{
