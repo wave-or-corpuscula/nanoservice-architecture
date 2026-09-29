@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"orderservice/internal/config"
 	"orderservice/internal/database"
+	"orderservice/internal/kafka"
 	"strconv"
 	"strings"
 	"testing"
@@ -57,13 +58,24 @@ func (mc *MockUserClient) GetUser(
 	return &user.GetUserResponse{Id: 1, Name: "grpcName", Email: "grpcEmail"}, nil
 }
 
+type MockPublisher struct{}
+
+func (mp *MockPublisher) Publish(ctx context.Context, key string, value []byte) error {
+	return nil
+}
+
+func (mp *MockPublisher) PublishCreatedOrder(ctx context.Context, event kafka.OrderCreatedEvent) error {
+	return nil
+}
+
 func getTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
 	client := &MockUserClient{}
 	db := &MockDatabase{}
 	cfg := config.Load()
-	handler := NewHandler(db, client, cfg)
+	publisher := &MockPublisher{}
+	handler := NewHandler(db, client, cfg, publisher)
 
 	router := gin.New()
 	handler.RegisterRouters(router)

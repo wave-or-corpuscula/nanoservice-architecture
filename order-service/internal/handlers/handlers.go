@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"orderservice/internal/config"
 	"orderservice/internal/database"
+	"orderservice/internal/kafka"
 
 	user "microservices/proto/user"
 
@@ -21,17 +22,24 @@ type UserServiceClient interface {
 	GetUser(ctx context.Context, in *user.GetUserRequest, opts ...grpc.CallOption) (*user.GetUserResponse, error)
 }
 
+type EventPublisher interface {
+	Publish(ctx context.Context, key string, value []byte) error
+	PublishCreatedOrder(ctx context.Context, event kafka.OrderCreatedEvent) error
+}
+
 type Handler struct {
 	db         Database
 	userClient UserServiceClient
 	config     config.Config
+	publisher  EventPublisher
 }
 
-func NewHandler(db Database, userClient UserServiceClient, config config.Config) *Handler {
+func NewHandler(db Database, userClient UserServiceClient, config config.Config, publisher EventPublisher) *Handler {
 	return &Handler{
 		db:         db,
 		userClient: userClient,
 		config:     config,
+		publisher:  publisher,
 	}
 }
 
