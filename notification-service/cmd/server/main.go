@@ -22,9 +22,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	log.Printf("consuming topic=%s group=%s brokers=%v", topic, groupID, brokers)
+
 	for {
-		consumer := kafka.NewConsumer(brokers, topic, groupID)
-		log.Printf("consuming topic=%s group=%s brokers=%v", topic, groupID, brokers)
 		err := consumer.Run(ctx)
 		consumer.Close()
 
