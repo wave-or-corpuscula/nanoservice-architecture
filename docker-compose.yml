@@ -87,7 +87,7 @@ services:
     networks:
      - app-network
 
-  notify-service:
+  notify-service-1:
     build:
       context: ./notification-service/
       dockerfile: Dockerfile
@@ -98,12 +98,22 @@ services:
     networks:
      - app-network
 
+  notify-service-2:
+    build:
+      context: ./notification-service/
+      dockerfile: Dockerfile
+    env_file:
+     - ./notification-service/.env
+    depends_on:
+     - kafka
+    networks:
+     - app-network
 
   redis:
     image: redis:alpine
     container_name: redis_cache
     ports:
-     - "6380:6379"
+      - "6380:6379"
     command: redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
     networks:
       - app-network
