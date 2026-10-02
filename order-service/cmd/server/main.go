@@ -9,8 +9,11 @@ import (
 	"orderservice/internal/database"
 	"orderservice/internal/handlers"
 	"orderservice/internal/kafka"
+	"orderservice/internal/outbox"
+	"orderservice/internal/service"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	user "microservices/proto/user"
@@ -63,11 +66,29 @@ func main() {
 
 	client := user.NewUserServiceClient(conn)
 
+	// Outbox worker
+
+	outboxCtx, outboxCancel := context.WithCancel(context.Background())
+	defer outboxCancel()
+
+	worker := outbox.New(kafka.EventTypeOrderCreated, db, producer)
+
+	var outboxWorkerWg sync.WaitGroup
+	outboxWorkerWg.Add(1)
+	go func() {
+		defer outboxWorkerWg.Done()
+		worker.Run(outboxCtx)
+	}()
+
 	// GIN initializing
 
 	router := gin.Default()
 
-	h := handlers.NewHandler(db, client, cfg, producer)
+	// OrderService
+
+	orders := service.NewOrderService(db)
+
+	h := handlers.NewHandler(db, client, cfg, producer, orders)
 	h.RegisterRouters(router)
 
 	srv := http.Server{
@@ -84,6 +105,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	outboxCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTPShutdownTimeout)
 	defer cancel()
@@ -93,5 +115,7 @@ func main() {
 	} else {
 		log.Println("GIN server stopped gracefully")
 	}
+
+	outboxWorkerWg.Wait()
 	log.Println("Application exiting successfully")
 }
