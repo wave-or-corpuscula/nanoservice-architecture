@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type TxDatabase interface {
+	CreateEvent(ctx context.Context, eventType string, key string, payload []byte) (*Outbox, error)
+	CreateOrderCtx(ctx context.Context, userID uint, amount float64) (*Order, error)
+}
 
 type Database struct {
 	db *gorm.DB
@@ -74,6 +80,10 @@ func InitDB() (*Database, error) {
 		return nil, fmt.Errorf("cannot migrate Order table: %w", err)
 	}
 
+	if err := database.AutoMigrate(&Outbox{}); err != nil {
+		return nil, fmt.Errorf("cannot migrate Outbox table: %w", err)
+	}
+
 	if err := sqlDB.Ping(); err != nil {
 		return nil, err
 	}
@@ -102,11 +112,19 @@ func (db *Database) CreateOrder(userID uint, amount float64) (*Order, error) {
 	}
 
 	if err := db.db.Debug().Create(order).Error; err != nil {
-		// var pgErr *pgconn.PgError
-		// if errors.As(err, &pgErr) && pgErr.Code == "23503" { // 23503 - code for foreign_key_violation in Postgres
-		// 	return nil, ErrUserNotFound
-		// }
+		return nil, err
+	}
 
+	return order, nil
+}
+
+func (db *Database) CreateOrderCtx(ctx context.Context, userID uint, amount float64) (*Order, error) {
+	order := &Order{
+		UserID: userID,
+		Amount: amount,
+	}
+
+	if err := db.db.WithContext(ctx).Create(order).Error; err != nil {
 		return nil, err
 	}
 
@@ -129,4 +147,39 @@ func (db *Database) GetUserOrders(userID uint) (*OrdersResponse, error) {
 	return &OrdersResponse{
 		Orders: orders,
 	}, nil
+}
+
+func (db *Database) CreateEvent(ctx context.Context, eventType string, key string, payload []byte) (*Outbox, error) {
+	event := &Outbox{
+		EventType:   eventType,
+		AggregateID: key,
+		Payload:     payload,
+	}
+
+	if err := db.db.WithContext(ctx).Create(event).Error; err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (db *Database) WithTx(ctx context.Context, fn func(tx TxDatabase) error) error {
+	return db.db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
+		return fn(&Database{db: gormTx})
+	})
+}
+
+func (db *Database) GetUnpublished(ctx context.Context, eventType string) ([]*Outbox, error) {
+	var unpublished []*Outbox
+
+	if err := db.db.WithContext(ctx).
+		Where("published_at is NULL AND event_type = ?", eventType).
+		Find(&unpublished).Error; err != nil {
+		return nil, err
+	}
+
+	return unpublished, nil
+}
+
+func (db *Database) SetEventPublished(ctx context.Context, eventID uint) error {
+	return db.db.WithContext(ctx).Model(&Outbox{}).Where("id = ?", eventID).Update("published_at", time.Now()).Error
 }
