@@ -14,8 +14,11 @@ import (
 )
 
 type Database interface {
-	CreateOrder(userID uint, amount float64) (*database.Order, error)
 	GetUserOrders(userID uint) (*database.OrdersResponse, error)
+}
+
+type OrderService interface {
+	CreateOrder(ctx context.Context, userID uint, amount float64) (*database.Order, error)
 }
 
 type UserServiceClient interface {
@@ -32,14 +35,22 @@ type Handler struct {
 	userClient UserServiceClient
 	config     config.Config
 	publisher  EventPublisher
+	orders     OrderService
 }
 
-func NewHandler(db Database, userClient UserServiceClient, config config.Config, publisher EventPublisher) *Handler {
+func NewHandler(
+	db Database,
+	userClient UserServiceClient,
+	config config.Config,
+	publisher EventPublisher,
+	orders OrderService,
+) *Handler {
 	return &Handler{
 		db:         db,
 		userClient: userClient,
 		config:     config,
 		publisher:  publisher,
+		orders:     orders,
 	}
 }
 

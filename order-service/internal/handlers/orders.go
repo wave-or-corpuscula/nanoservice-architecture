@@ -7,7 +7,6 @@ import (
 	user "microservices/proto/user"
 	"net/http"
 	"orderservice/internal/database"
-	"orderservice/internal/kafka"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -62,21 +61,21 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	order, err := h.db.CreateOrder(req.UserID, req.Amount)
+	order, err := h.orders.CreateOrder(c.Request.Context(), req.UserID, req.Amount)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot execute query: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot create order: " + err.Error()})
 		return
 	}
 
-	if err := h.publisher.PublishCreatedOrder(ctx, kafka.OrderCreatedEvent{
-		OrderID:   order.ID,
-		UserID:    order.UserID,
-		Amount:    order.Amount,
-		CreatedAt: order.CreatedAt,
-	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "kafka: cannot publish order creation event: " + err.Error()})
-		return
-	}
+	// if err := h.publisher.PublishCreatedOrder(ctx, kafka.OrderCreatedEvent{
+	// 	OrderID:   order.ID,
+	// 	UserID:    order.UserID,
+	// 	Amount:    order.Amount,
+	// 	CreatedAt: order.CreatedAt,
+	// }); err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "kafka: cannot publish order creation event: " + err.Error()})
+	// 	return
+	// }
 
 	c.JSON(http.StatusCreated, order)
 }
