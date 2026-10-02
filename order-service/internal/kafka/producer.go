@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"orderservice/internal/database"
 	"strconv"
 	"time"
 
@@ -37,6 +38,17 @@ func (p *Producer) PublishCreatedOrder(ctx context.Context, event OrderCreatedEv
 
 	key := strconv.FormatUint(uint64(event.UserID), 10)
 	return p.Publish(ctx, key, payload)
+}
+
+func (p *Producer) PublishOrder(ctx context.Context, order database.Order) error {
+	event := OrderCreatedEvent{
+		OrderID:   order.ID,
+		UserID:    order.UserID,
+		Amount:    order.Amount,
+		CreatedAt: order.CreatedAt,
+	}
+
+	return p.PublishCreatedOrder(ctx, event)
 }
 
 func (p *Producer) Publish(ctx context.Context, key string, value []byte) error {
