@@ -93,6 +93,8 @@ services:
       dockerfile: Dockerfile
     env_file:
      - ./notification-service/.env
+    environment:
+     - KAFKA_GROUP_ID=consumer1
     depends_on:
      - kafka
     networks:
@@ -104,6 +106,8 @@ services:
       dockerfile: Dockerfile
     env_file:
      - ./notification-service/.env
+    environment:
+     - KAFKA_GROUP_ID=consumer2
     depends_on:
      - kafka
     networks:
