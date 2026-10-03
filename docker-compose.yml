@@ -78,8 +78,9 @@ services:
     env_file:
      - ./order-service/.env
     environment:
-     - GRPC_USER_HOST=user-service
      - DB_HOST=order-postgres
+     - DB_NAME=orderdb
+     - GRPC_USER_HOST=user-service
      - KAFKA_BROKERS=kafka:19092
     depends_on:
      - order-postgres

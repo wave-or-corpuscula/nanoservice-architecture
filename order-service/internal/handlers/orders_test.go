@@ -34,10 +34,6 @@ func getTestOrder(userID uint, amount float64) *database.Order {
 
 type MockDatabase struct{}
 
-func (md *MockDatabase) CreateOrder(userID uint, amount float64) (*database.Order, error) {
-	return getTestOrder(userID, amount), nil
-}
-
 func (md *MockDatabase) GetUserOrders(userID uint) (*database.OrdersResponse, error) {
 	return &database.OrdersResponse{
 		Orders: []database.Order{
@@ -68,6 +64,12 @@ func (mp *MockPublisher) PublishCreatedOrder(ctx context.Context, event kafka.Or
 	return nil
 }
 
+type MockOrderService struct{}
+
+func (ms *MockOrderService) CreateOrder(ctx context.Context, userID uint, amount float64) (*database.Order, error) {
+	return getTestOrder(userID, amount), nil
+}
+
 func getTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -75,7 +77,8 @@ func getTestRouter() *gin.Engine {
 	db := &MockDatabase{}
 	cfg := config.Load()
 	publisher := &MockPublisher{}
-	handler := NewHandler(db, client, cfg, publisher)
+	orders := &MockOrderService{}
+	handler := NewHandler(db, client, cfg, publisher, orders)
 
 	router := gin.New()
 	handler.RegisterRouters(router)

@@ -13,3 +13,12 @@ type Order struct {
 type OrdersResponse struct {
 	Orders []Order `json:"orders"`
 }
+
+type Outbox struct {
+	ID          uint      `gorm:"primaryKey"`
+	EventType   string    `gorm:"not null"`
+	AggregateID string    `gorm:"not null"`
+	Payload     []byte    `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"type:timestamptz;default:now()"`
+	PublishedAt time.Time `gorm:"type:timestamptz;default:null"`
+}
