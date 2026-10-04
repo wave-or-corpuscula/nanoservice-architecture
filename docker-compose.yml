@@ -95,24 +95,41 @@ services:
     env_file:
      - ./notification-service/.env
     environment:
+     - DB_HOST=notify-postgres
+     - DB_NAME=notificationsdb
      - KAFKA_GROUP_ID=consumer1
     depends_on:
      - kafka
+     - notify-postgres
     networks:
      - app-network
 
-  notify-service-2:
-    build:
-      context: ./notification-service/
-      dockerfile: Dockerfile
-    env_file:
-     - ./notification-service/.env
+  notify-postgres:
+    image: postgres:16-alpine
+    container_name: notify-service-db
     environment:
-     - KAFKA_GROUP_ID=consumer2
-    depends_on:
-     - kafka
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notificationsdb
+    # ports:
+    #  - "8887:5432"
+    volumes:
+      - notifications-pg-volume:/var/lib/postgresql/data
     networks:
-     - app-network
+      - app-network
+
+  # notify-service-2:
+  #   build:
+  #     context: ./notification-service/
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #    - ./notification-service/.env
+  #   environment:
+  #    - KAFKA_GROUP_ID=consumer2
+  #   depends_on:
+  #    - kafka
+  #   networks:
+  #    - app-network
 
   redis:
     image: redis:alpine
@@ -127,6 +144,7 @@ volumes:
   user-pg-volume:
   order-pg-volume:
   kafka-volume:
+  notifications-pg-volume:
 
 networks:
   app-network:
