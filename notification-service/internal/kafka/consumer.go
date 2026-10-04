@@ -4,16 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 )
 
-type Consumer struct {
-	reader *kafka.Reader
+type Database interface {
+	EventExitsts(ctx context.Context, eventID uint) (bool, error)
+	ProcessEvent(ctx context.Context, eventID uint, processedAt time.Time) error
 }
 
-func NewConsumer(brokers []string, topic, groupID string) *Consumer {
+type Consumer struct {
+	db      Database
+	reader  *kafka.Reader
+	dlq     *DLQWriter
+	retryes int
+}
+
+func NewConsumer(db Database, dlq *DLQWriter, retryes int, brokers []string, topic, groupID string) *Consumer {
 	r := kafka.NewReader(
 		kafka.ReaderConfig{
 			Brokers:  brokers,
@@ -24,7 +34,12 @@ func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 		},
 	)
 
-	return &Consumer{reader: r}
+	return &Consumer{
+		db:      db,
+		dlq:     dlq,
+		reader:  r,
+		retryes: retryes,
+	}
 }
 
 func (c *Consumer) Run(ctx context.Context) error {
@@ -37,14 +52,68 @@ func (c *Consumer) Run(ctx context.Context) error {
 			return err
 		}
 
-		var order OrderCreatedEvent
-		err = json.NewDecoder(bytes.NewReader(msg.Value)).Decode(&order)
+		var event Event
+		err = json.NewDecoder(bytes.NewReader(msg.Value)).Decode(&event)
 		if err != nil {
 			return err
 		}
 
-		log.Printf("event: key=%s value=%v\n", string(msg.Key), order)
+		exists, err := c.db.EventExitsts(ctx, event.ID)
+		if err != nil {
+			return err
+		}
+
+		if exists {
+			log.Println("skipping duplicate event: ", event.ID)
+			continue
+		}
+
+		var processError error
+		for i := range c.retryes {
+			if event.EventType == EventTypeOrderCreated {
+				processError = ProcessEvent(event)
+				if processError != nil {
+					log.Printf("cannot process event: %v, retrying %d/%d", processError, i+1, c.retryes)
+					time.Sleep(time.Second)
+					continue
+				} else {
+					break
+				}
+			} else {
+				log.Printf("unknown event type: %s\n", event.EventType)
+			}
+		}
+
+		if processError != nil {
+			if err := c.dlq.WriteMessage(ctx, msg.Key, msg.Value); err != nil {
+				log.Printf("cannot publish into dlq: %v\n", err)
+				return err
+			} else {
+				log.Println("cannot process, sent to dlq:", string(msg.Value))
+			}
+			continue
+		}
+
+		err = c.db.ProcessEvent(ctx, event.ID, time.Now())
+		if err != nil {
+			return err
+		}
 	}
+}
+
+func ProcessEvent(event Event) error {
+	var orderEvent OrderCreatedEvent
+	err := json.NewDecoder(bytes.NewReader(event.Payload)).Decode(&orderEvent)
+	if err != nil {
+		return err
+	}
+
+	if int(orderEvent.Amount) == 100 {
+		return errors.New("invalid amount")
+	}
+
+	log.Printf("[%s] (%v), user_id: %d, amount: %f\n", event.EventType, event.CreatedAt, orderEvent.UserID, orderEvent.Amount)
+	return nil
 }
 
 func (c *Consumer) Close() error {
