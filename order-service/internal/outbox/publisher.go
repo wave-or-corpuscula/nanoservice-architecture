@@ -2,10 +2,19 @@ package outbox
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"orderservice/internal/database"
 	"time"
 )
+
+type Event struct {
+	ID          uint      `json:"id"`
+	EventType   string    `json:"event_type"`
+	AggregateID string    `json:"aggregate_id"`
+	Payload     []byte    `json:"payload"`
+	CreatedAt   time.Time `json:"created_at"`
+}
 
 type Database interface {
 	SetEventPublished(ctx context.Context, eventID uint) error
@@ -53,14 +62,27 @@ func (p *Publisher) PublishUnpublished(ctx context.Context) error {
 		return err
 	}
 
-	for _, event := range events {
-		if err := p.eventPublisher.Publish(ctx, event.AggregateID, event.Payload); err != nil {
-			return err
-		} else {
-			log.Printf("published: [%s] key: %s, payload: %s\n", event.EventType, event.AggregateID, string(event.Payload))
+	for _, outboxEvent := range events {
+		event := Event{
+			ID:          outboxEvent.ID,
+			EventType:   outboxEvent.EventType,
+			AggregateID: outboxEvent.AggregateID,
+			Payload:     outboxEvent.Payload,
+			CreatedAt:   outboxEvent.CreatedAt,
 		}
 
-		if err := p.db.SetEventPublished(ctx, event.ID); err != nil {
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		if err := p.eventPublisher.Publish(ctx, outboxEvent.AggregateID, payload); err != nil {
+			return err
+		} else {
+			log.Printf("published: [%s] key: %s, payload: %s\n", outboxEvent.EventType, outboxEvent.AggregateID, string(outboxEvent.Payload))
+		}
+
+		if err := p.db.SetEventPublished(ctx, outboxEvent.ID); err != nil {
 			return err
 		}
 	}
